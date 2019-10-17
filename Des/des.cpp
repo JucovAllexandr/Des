@@ -22,7 +22,7 @@ void Des::encode(string key, string msg)
         cout <<"bin msg"<< binaryMsg<<endl;
         binaryMsg = "0000000100100011010001010110011110001001101010111100110111101111";
 
-        string IPbinMsg =  permute(binaryMsg, ip, 64);
+        string IPbinMsg =  permute(binaryMsg, IP, 64);
         cout <<"initial permute "<<IPbinMsg<<endl;
 
         string leftIPbinMsg, rightIPbinMsg;
@@ -30,18 +30,45 @@ void Des::encode(string key, string msg)
         leftIPbinMsg = IPbinMsg.substr(0, 32);
         rightIPbinMsg = IPbinMsg.substr(32, 32);
 
-        cout << "left part: "<<leftIPbinMsg << endl;
-        cout << "right part: "<<rightIPbinMsg << endl;
+        cout << "L0: "<<leftIPbinMsg << endl;
+        cout << "R0: "<<rightIPbinMsg << endl;
 
-        string E = permute(rightIPbinMsg, eBit, 48);
-        cout << "Expand right " << E << endl;
+        //feistelNetwork(rightIPbinMsg, subKeys.at(0));
 
-        cout << "Size "<<subKeys.at(0).size() << " "<<E.size() << endl;
-        cout << subKeys.at(0) <<endl;
-        cout << E <<endl;
-        cout << "Xor: "<< Xor(subKeys.at(0), E) << endl;
+        vector<pair<string, string>> _lr;
+        _lr.resize(17);
 
+        _lr[0].first = leftIPbinMsg;
+        _lr[0].second = rightIPbinMsg;
 
+        for(int i = 1; i <= 16; i++){
+            _lr[i].first = _lr[i-1].second;
+            _lr[i].second = Xor(_lr[i-1].first, feistelNetwork(_lr[i-1].second, subKeys.at(i-1)));
+
+            cout <<"L"<<i<<": "<<_lr[i].first<<endl;
+            cout <<"R"<<i<<": "<<_lr[i].second<<endl;
+        }
+
+        string L = _lr.at(_lr.size()-1).first;
+        string R = _lr.at(_lr.size()-1).second;
+
+        string finMsg = R;
+        finMsg.append(L);
+        /*for(int i = 0; i < 32; i+=4){
+            finMsg.append(R.substr(i,4) + L.substr(i,4));
+        }*/
+
+        cout << "Union rl "<<finMsg<<endl;
+
+        finMsg = permute(finMsg, FP, 64);
+
+        cout << "Fin permute "<<finMsg<<endl;
+
+        cout<< "M = ";
+        for(int i = 0; i < finMsg.size(); i+=8){
+            cout<<hex<<bitset<8>(finMsg.substr(i,8)).to_ulong();
+        }
+        cout<<endl;
     }
 }
 
@@ -104,7 +131,7 @@ vector<string> Des::genSubKeys(string key)
     cout <<"bin key"<< binaryKey<<endl;
     binaryKey = "0001001100110100010101110111100110011011101111001101111111110001";
 
-    string keyPerm = permute(binaryKey, pc1, 56);
+    string keyPerm = permute(binaryKey, PC1, 56);
 
     cout << "key permute: " << keyPerm << endl;
 
@@ -123,7 +150,7 @@ vector<string> Des::genSubKeys(string key)
 
     for(int i = 0; i < 16; i++){
         string tmp = pairs.at(i).first + pairs.at(i).second;
-        keys[i] = permute(tmp, pc2, 48);
+        keys[i] = permute(tmp, PC2, 48);
 
         cout << "key "<<i+1<<" permute "<<keys[i] << endl;
     }
@@ -133,10 +160,11 @@ vector<string> Des::genSubKeys(string key)
 
 string Des::Xor(string m1, string m2)
 {
+    cout<<"Xor "<<m1<<" "<<m2<<endl;
     string str;
 
     if(m1.size() == m2.size()){
-        str.resize(48);
+        str.resize(m1.size());
 
         for(int i = 0; i < m1.size(); ++i){
             if((m1.at(i) == '0' && m2.at(i) == '0') || (m1.at(i) == '1' && m2.at(i) == '1')){
@@ -148,4 +176,71 @@ string Des::Xor(string m1, string m2)
     }
 
     return str;
+}
+
+string Des::s_function(string str)
+{
+    string retStr;
+    if(str.size() == 48){
+        retStr.reserve(32);
+        vector<string> splitBy6Bit;
+
+        for(int i = 0; i < str.size(); i+=6){
+            splitBy6Bit.push_back(str.substr(i, 6));
+        }
+
+        /*for(int i = 0; i< splitBy6Bit.size();i++){
+            cout << "Split str "<< splitBy6Bit.at(i)<<endl;
+        }*/
+
+        unsigned long d_row, d_col;
+        string s_row, s_col;
+        s_row.resize(2);
+
+        for(int si = 0; si < 8; si++){
+            s_row[0] = splitBy6Bit.at(si).at(0);
+            s_row[1] = splitBy6Bit.at(si).at(5);
+
+            //cout << "Fist and last bits "<<s_row<<endl;
+            d_row = bitset<2>(s_row).to_ulong();
+
+            //cout<< "Decimal representation "<< d_row<<endl;
+            s_col = splitBy6Bit.at(si).substr(1,4);
+
+            //cout << "4 middle bits "<<s_col<<endl;
+            d_col = bitset<4>(s_col).to_ulong();
+
+            //cout<< "Decimal representation "<< bitset<4>(s_col).to_ulong()<<endl;
+            //cout<< "S"<<si<<" "<<S[si][d_row][d_col]<<" | "<<bitset<4>(S[si][d_row][d_col])<<endl;
+            retStr.append(bitset<4>(S[si][d_row][d_col]).to_string());
+        }
+    }
+
+    return retStr;
+}
+
+string Des::feistelNetwork(string r, string k)
+{
+    string retStr;
+
+    if(r.size() == 32 && k.size() == 48){
+        string E = permute(r, eBit, 48);
+        /*cout << "Expand right " << E << endl;
+
+        cout << "Size "<<k.size() << " "<<E.size() << endl;
+        cout << k <<endl;
+        cout << E <<endl;*/
+
+        string _xor = Xor(k, E);
+        //cout << "Xor: "<< _xor << endl;
+
+        string sf = s_function(_xor);
+        //cout << "S function: "<<endl<< sf<<endl;
+
+        retStr = permute(sf, P, 32);
+        //cout<<"permute s func "<<retStr<<endl;
+        cout<<"f = "<< retStr<< endl;
+    }
+
+    return retStr;
 }
