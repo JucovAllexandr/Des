@@ -3,6 +3,7 @@
 
 #include <string>
 #include <bitset>
+#include <sstream>
 #include <iostream>
 #include <vector>
 
@@ -106,7 +107,8 @@ class Des
                   33, 1, 41,  9, 49, 17, 57, 25};
 
 public:
-    void encode(string key, string msg);
+    void encrypt(string key, string msg);
+    void decrypt(string key, string msg16);
 private:
     string permute(string m, int *p, int size);
     pair<string, string> leftShift(string left, string right, int nbr);

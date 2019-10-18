@@ -1,8 +1,8 @@
 #include "des.h"
+#include <algorithm>
 
 
-
-void Des::encode(string key, string msg)
+void Des::encrypt(string key, string msg)
 {
     string binaryMsg;
     binaryMsg.reserve(64);
@@ -16,11 +16,11 @@ void Des::encode(string key, string msg)
 
         //-----Message part
         for(int i = 0; i < 8; i++){
-            cout << "Message: " << msg.at(i) << " | "<< bitset<8>(msg.at(i)) <<endl;
+            cout << "Message: " << msg.at(i) << " | "<< bitset<8>(msg.at(i))<<" | "<<std::hex<<bitset<8>(msg.at(i)).to_ulong()<<endl;
             binaryMsg.append(bitset<8>(msg.at(i)).to_string());
         }
         cout <<"bin msg"<< binaryMsg<<endl;
-        binaryMsg = "0000000100100011010001010110011110001001101010111100110111101111";
+        //binaryMsg = "0000000100100011010001010110011110001001101010111100110111101111";
 
         string IPbinMsg =  permute(binaryMsg, IP, 64);
         cout <<"initial permute "<<IPbinMsg<<endl;
@@ -64,12 +64,37 @@ void Des::encode(string key, string msg)
 
         cout << "Fin permute "<<finMsg<<endl;
 
-        cout<< "M = ";
+        cout<< "M(hex) = ";
+
         for(int i = 0; i < finMsg.size(); i+=8){
             cout<<hex<<bitset<8>(finMsg.substr(i,8)).to_ulong();
         }
         cout<<endl;
+
+        cout<< "M = ";
+        for(int i = 0; i < finMsg.size(); i+=8){
+            cout<<(char)bitset<8>(finMsg.substr(i,8)).to_ulong()<<" ";
+        }
+        cout<<endl;
     }
+}
+
+void Des::decrypt(string key, string msg16)
+{
+
+    string msg;
+    int c;
+    stringstream ss;
+
+    for(int i = 0; i < 16; i+=2){
+        ss.clear();
+        ss << std::hex << msg16.substr(i,2);
+        ss >> c;
+        cout<<c<<endl;
+        msg.push_back(c);
+    }
+
+    encrypt(key, msg);
 }
 
 string Des::permute(string m, int *p, int size)
@@ -129,7 +154,7 @@ vector<string> Des::genSubKeys(string key)
     }
 
     cout <<"bin key"<< binaryKey<<endl;
-    binaryKey = "0001001100110100010101110111100110011011101111001101111111110001";
+    //binaryKey = "0001001100110100010101110111100110011011101111001101111111110001";
 
     string keyPerm = permute(binaryKey, PC1, 56);
 
@@ -154,7 +179,7 @@ vector<string> Des::genSubKeys(string key)
 
         cout << "key "<<i+1<<" permute "<<keys[i] << endl;
     }
-
+    reverse(keys.begin(), keys.end());
     return  keys;
 }
 
